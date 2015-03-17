@@ -23,6 +23,7 @@ import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.renderer.category.CategoryItemRenderer;
 import org.jfree.chart.renderer.category.LineAndShapeRenderer;
+import org.jfree.data.Range;
 import org.jfree.data.category.CategoryDataset;
 import org.pentaho.plugin.jfreereport.reportcharts.backport.FormattedCategoryAxis;
 import org.pentaho.plugin.jfreereport.reportcharts.backport.FormattedCategoryAxis3D;
@@ -81,6 +82,18 @@ public class LineChartExpression extends CategoricalChartExpression
       shapeRenderer.setBaseShapesFilled(isMarkersVisible());
     }
 
+    cpl.getRangeAxis().setAutoRange(false);
+    Range range = cpl.getRangeAxis().getRange();
+    double newUp = range.getUpperBound();
+    if (newUp > 0) {
+      newUp = range.getUpperBound() * 1.1;
+    }
+
+    double newLow = range.getLowerBound();
+    if (newLow < 0) {
+      newLow = range.getLowerBound() * 1.1;
+    }
+    cpl.getRangeAxis().setRange(newLow, newUp);
   }
 
   /**
