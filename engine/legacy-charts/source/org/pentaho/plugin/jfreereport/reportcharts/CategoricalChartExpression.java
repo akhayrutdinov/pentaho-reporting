@@ -18,12 +18,18 @@
 package org.pentaho.plugin.jfreereport.reportcharts;
 
 import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 import java.math.RoundingMode;
 import java.text.DateFormatSymbols;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.CategoryAxis;
@@ -40,6 +46,8 @@ import org.jfree.chart.labels.StandardCategoryItemLabelGenerator;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.renderer.category.CategoryItemRenderer;
+import org.jfree.chart.renderer.category.CategoryItemRendererState;
+import org.jfree.chart.renderer.category.LineRenderer3D;
 import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.general.Dataset;
 import org.jfree.data.time.Day;
@@ -48,6 +56,7 @@ import org.jfree.data.time.Minute;
 import org.jfree.data.time.Month;
 import org.jfree.data.time.Second;
 import org.jfree.data.time.Year;
+import org.jfree.text.TextUtilities;
 import org.jfree.ui.TextAnchor;
 import org.pentaho.plugin.jfreereport.reportcharts.backport.FastNumberTickUnit;
 import org.pentaho.reporting.engine.classic.core.ClassicEngineBoot;
@@ -522,7 +531,75 @@ public abstract class CategoricalChartExpression extends AbstractChartExpression
     super.configureChart(chart);
 
     final CategoryPlot cpl = chart.getCategoryPlot();
-    final CategoryItemRenderer renderer = cpl.getRenderer();
+    CategoryItemRenderer renderer = cpl.getRenderer();
+    CategoryItemRenderer r2 = new LineRenderer3D() {
+
+      private final Map<String, Rectangle2D> cache = new HashMap<String, Rectangle2D>();
+
+      public void drawItem(final Graphics2D g2,
+                           final CategoryItemRendererState state,
+                           final Rectangle2D dataArea,
+                           final CategoryPlot plot,
+                           final CategoryAxis domainAxis,
+                           final ValueAxis rangeAxis,
+                           final CategoryDataset dataset,
+                           final int row,
+                           final int column,
+                           final int pass)
+      {
+        if (getItemVisible(row, column) && dataset.getValue(row, column) != null && isItemLabelVisible(row, column) && getItemLabelGenerator(row, column) != null) {
+          cache.put("" + row + ";" + column, dataArea.getBounds2D());
+        }
+        super.drawItem(g2, state, dataArea, plot, domainAxis, rangeAxis, dataset, row, column, pass);
+      }
+
+      protected void drawItemLabel(final Graphics2D g2,
+                                   final PlotOrientation orientation,
+                                   final CategoryDataset dataset,
+                                   final int row,
+                                   final int column,
+                                   double x,
+                                   double y,
+                                   final boolean negative)
+      {
+        String key = "" + row + ";" + column;
+        Rectangle2D area = cache.remove(key);
+        if (area != null) {
+          Font prevFont = g2.getFont();
+          Font labelFont = getItemLabelFont(row, column);
+          try {
+            FontMetrics fm = g2.getFontMetrics(labelFont);
+            Rectangle2D textBounds = TextUtilities.getTextBounds(getItemLabelGenerator(row, column).generateLabel(dataset, row, column), g2, fm);
+            double w = textBounds.getWidth();
+            double h = textBounds.getHeight();
+
+            ItemLabelPosition position;
+            if(!negative) {
+              position = this.getPositiveItemLabelPosition(row, column);
+            } else {
+              position = this.getNegativeItemLabelPosition(row, column);
+            }
+            Point2D anchorPoint = this.calculateLabelAnchorPoint(position.getItemLabelAnchor(), x, y, orientation);
+
+            double _x = anchorPoint.getX();
+            if (area.getMaxX() - _x < w) {
+              x -= w - (area.getMaxX() - _x) + 1;
+            }
+
+            double _y = anchorPoint.getY();
+            if (_y - area.getMinY() < 3*h/4) {
+              y += 3*h/4 - (_y - area.getMinY()) + 1;
+            }
+          } finally
+          {
+            g2.setFont(prevFont);
+          }
+        }
+        super.drawItemLabel(g2, orientation, dataset, row, column, x, y, negative);
+      }
+    };
+    cpl.setRenderer(r2);
+    renderer = r2;
     if (StringUtils.isEmpty(getTooltipFormula()) == false)
     {
       renderer.setBaseToolTipGenerator(new FormulaCategoryTooltipGenerator(getRuntime(), getTooltipFormula()));
