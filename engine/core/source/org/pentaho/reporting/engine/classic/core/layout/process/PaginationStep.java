@@ -63,6 +63,7 @@ public final class PaginationStep extends IterateVisualProcessStep {
   private long usablePageHeight;
   private long tableHeaderHeight;
   private long actualShift;
+  private long pageHeaderOffset;
 
   public PaginationStep() {
     findOldestProcessKeyStep = new FindOldestProcessKeyStep();
@@ -86,6 +87,8 @@ public final class PaginationStep extends IterateVisualProcessStep {
       this.breakPending = false;
       this.usablePageHeight = Long.MAX_VALUE;
       this.tableHeaderHeight = 0;
+      // header area always exists
+      this.pageHeaderOffset = pageBox.getHeaderArea().getHeight();
       this.actualShift = 0;
 
       final long[] allCurrentBreaks = pageBox.getPhysicalBreaks( RenderNode.VERTICAL_AXIS );
@@ -118,9 +121,18 @@ public final class PaginationStep extends IterateVisualProcessStep {
       }
       finishBlockLevelBox( pageBox );
 
+      if (pageHeaderOffset > 0) {
+        ReportStateKey headerStateKey = pickupReportStateKey(pageBox.getHeaderArea());
+        if (headerStateKey != null && this.visualState != null) {
+          if (headerStateKey.getSequenceCounter() > this.visualState.getSequenceCounter()) {
+            this.visualState = headerStateKey;
+          }
+        }
+      }
+
       PaginationStepLib.assertProgress( pageBox );
 
-      final long usedPageHeight = Math.min( pageBox.getHeight(), usablePageHeight );
+      final long usedPageHeight = Math.min( pageBox.getHeight() - tableHeaderHeight, usablePageHeight );
       final long masterBreak = basePageBreakList.getLastMasterBreak();
       final boolean overflow;
       if ( breakIndicatorEncountered != null ) {
@@ -142,6 +154,15 @@ public final class PaginationStep extends IterateVisualProcessStep {
       getEventWatch().stop();
       getSummaryWatch().stop( true );
     }
+  }
+
+  private ReportStateKey pickupReportStateKey(RenderBox box) {
+    while ( box != null && box.getStateKey() == null ) {
+      if ( box.getFirstChild() instanceof RenderBox) {
+        box = (RenderBox) box.getFirstChild();
+      }
+    }
+    return  (box == null) ? null : box.getStateKey();
   }
 
   protected void processParagraphChilds( final ParagraphRenderBox box ) {
@@ -366,6 +387,8 @@ public final class PaginationStep extends IterateVisualProcessStep {
     RenderBox box = findRootBox( _box );
 
     final long contextShift = shiftState.getShiftForNextChild();
+    tableHeaderHeight = box.getHeight();
+    actualShift -= tableHeaderHeight;
     // shift the header downwards,
     // 1. Check that this table actually breaks across the current page. Header position must be
     //    before the pagebox-offset. If not, return false, after the normal shifting.
@@ -407,8 +430,6 @@ public final class PaginationStep extends IterateVisualProcessStep {
     BoxShifter.shiftBox( box, delta );
     updateStateKeyDeep( box );
     shiftState.increaseShift( headerShift );
-    tableHeaderHeight = box.getHeight();
-    actualShift = -tableHeaderHeight;
     if ( logger.isDebugEnabled() ) {
       logger.debug( "Table-Height after extension: " + box.getParent().getHeight() );
     }
@@ -439,7 +460,7 @@ public final class PaginationStep extends IterateVisualProcessStep {
       // PRD-5547:
       // AutoRenderBox is left intact while paginating table-layouted canvas and then is simply cut by Printer
       // to preserve it, let's update the coordinate with Y coordinate of the very first table section child
-      long pageStart = paginationTableState.getPageEnd() - paginationTableState.getPageHeight();
+      long pageStart = paginationTableState.getPageEnd() - ( paginationTableState.getPageHeight() - pageHeaderOffset );
       long newY = -1;
       RenderNode child = box.getFirstChild();
       while ( child != null ) {
@@ -463,7 +484,6 @@ public final class PaginationStep extends IterateVisualProcessStep {
       if ( breakGap > 0 ) {
         actualShift += breakGap;
         shiftState.increaseShift( breakGap );
-        updateStateKeyDeep( box );
       }
     }
 

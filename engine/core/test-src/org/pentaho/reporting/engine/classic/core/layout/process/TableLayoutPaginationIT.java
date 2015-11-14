@@ -44,7 +44,7 @@ import static org.junit.Assert.*;
  * org.pentaho.reporting.engine.classic.core.util.PageSize#LETTER LETTER} with margins of 72; the overall free vertical
  * space is (792 - 72 x 2) = 648</li>
  *   <li>Each row's height is 200</li>
- *   <li>Header's and footer's height are 150</li>
+ *   <li>Table header's and footer's height are 150</li>
  * </ul>
  *
  * By default, each test's dataset contains 10 elements, with names defining their order number (1..10).
@@ -53,11 +53,15 @@ import static org.junit.Assert.*;
  */
 public class TableLayoutPaginationIT {
 
+  private static final String PAGE_HEADER_NAME = "page-header";
+  private static final String PAGE_HEADER_VALUE = "Page-Header";
+
   private static final String HEADER_NAME = "header";
   private static final int HEADER_HEIGHT = 150;
   private static final String HEADER_VALUE = "Header";
 
   private static final String FOOTER_NAME = "footer";
+  private static final int FOOTER_HEIGHT = 150;
   private static final String FOOTER_VALUE = "Footer";
 
   private static final String DETAIL_ROW_NAME = "detailRow";
@@ -97,10 +101,12 @@ public class TableLayoutPaginationIT {
   public void paginate_NoHeader_NoFooter() throws Exception {
     String file = "table-layout-pagination-no-header-no-footer.prpt";
     List<LogicalPageBox> pages = loadPages( file, 4 );
-    assertPage( pages.get( 0 ), "1", "2", "3" );
-    assertPage( pages.get( 1 ), "4", "5", "6" );
-    assertPage( pages.get( 2 ), "7", "8", "9" );
-    assertPage( pages.get( 3 ), "10" );
+
+    PageValidator validator = validator().build();
+    validator.validatePage( pages.get( 0 ), "1", "2", "3" );
+    validator.validatePage( pages.get( 1 ), "4", "5", "6" );
+    validator.validatePage( pages.get( 2 ), "7", "8", "9" );
+    validator.validatePage( pages.get( 3 ), "10" );
   }
 
   /*
@@ -115,11 +121,13 @@ public class TableLayoutPaginationIT {
   public void paginate_WithHeader() throws Exception {
     String file = "table-layout-pagination-header-no-footer.prpt";
     List<LogicalPageBox> pages = loadPages( file, 5 );
-    assertPage( pages.get( 0 ), true, "1", "2" );
-    assertPage( pages.get( 1 ), true, "3", "4" );
-    assertPage( pages.get( 2 ), true, "5", "6" );
-    assertPage( pages.get( 3 ), true, "7", "8" );
-    assertPage( pages.get( 4 ), true, "9", "10" );
+
+    PageValidator validator = validator().withTableHeader().build();
+    validator.validatePage( pages.get( 0 ), "1", "2" );
+    validator.validatePage( pages.get( 1 ), "3", "4" );
+    validator.validatePage( pages.get( 2 ), "5", "6" );
+    validator.validatePage( pages.get( 3 ), "7", "8" );
+    validator.validatePage( pages.get( 4 ), "9", "10" );
   }
 
   /*
@@ -135,10 +143,12 @@ public class TableLayoutPaginationIT {
   public void paginate_WithFooter() throws Exception {
     String file = "table-layout-pagination-no-header-footer.prpt";
     List<LogicalPageBox> pages = loadPages( file, 4 );
-    assertPage( pages.get( 0 ), false, "1", "2", "3" );
-    assertPage( pages.get( 1 ), false, "4", "5", "6" );
-    assertPage( pages.get( 2 ), false, "7", "8", "9" );
-    assertPage( pages.get( 3 ), false, true, "10" );
+
+    PageValidator validator = validator().build();
+    validator.validatePage( pages.get( 0 ), "1", "2", "3" );
+    validator.validatePage( pages.get( 1 ), "4", "5", "6" );
+    validator.validatePage( pages.get( 2 ), "7", "8", "9" );
+    validator.alsoCheckTableFooter().validatePage( pages.get( 3 ), "10" );
   }
 
   /*
@@ -154,16 +164,18 @@ public class TableLayoutPaginationIT {
   public void paginate_WithHeaderAndFooter() throws Exception {
     String file = "table-layout-pagination-header-footer.prpt";
     List<LogicalPageBox> pages = loadPages( file, 6 );
-    assertPage( pages.get( 0 ), true, "1", "2" );
-    assertPage( pages.get( 1 ), true, "3", "4" );
-    assertPage( pages.get( 2 ), true, "5", "6" );
-    assertPage( pages.get( 3 ), true, "7", "8" );
-    assertPage( pages.get( 4 ), true, "9", "10" );
-    assertPage( pages.get( 5 ), true, true );
+
+    PageValidator validator = validator().withTableHeader().build();
+    validator.validatePage( pages.get( 0 ), "1", "2" );
+    validator.validatePage( pages.get( 1 ), "3", "4" );
+    validator.validatePage( pages.get( 2 ), "5", "6" );
+    validator.validatePage( pages.get( 3 ), "7", "8" );
+    validator.validatePage( pages.get( 4 ), "9", "10" );
+    validator.alsoCheckTableFooter().validatePage( pages.get( 5 ) );
   }
 
   /*
-   * A special test with 100 records. It is needed to reveal a possible mistakes
+   * A special test with 100 records. It is needed to reveal possible mistakes
    * which amass slowly and are not discernible with 3-4 pages.
    *
    * Expected layout:
@@ -176,76 +188,159 @@ public class TableLayoutPaginationIT {
   public void paginate_WithHeaderAndFooter_Long() throws Exception {
     String file = "table-layout-pagination-header-footer-100-records.prpt";
     List<LogicalPageBox> pages = loadPages( file, 51 );
+
+    PageValidator validator = validator().withTableHeader().build();
     int recordCounter = 1;
     for ( int i = 0; i < 50; i++ ) {
       String firstRow = Integer.toString( recordCounter++ );
       String secondRow = Integer.toString( recordCounter++ );
-      assertPage( pages.get( i ), true, firstRow, secondRow );
+      validator.validatePage( pages.get( i ), firstRow, secondRow );
     }
-    assertPage( pages.get( 50 ), true, true );
+    validator.alsoCheckTableFooter().validatePage( pages.get( 50 ) );
   }
 
 
-  private static void assertPage( LogicalPageBox page, String... rows ) {
-    assertPage( page, false, rows );
+  /*
+   * A test with a small page header (height = 50). Since it suits 98 gap, the expected layout should be similar to
+   * the case the no page header
+   */
+  @Test
+  public void paginate_WithHeaderAndSmallPageHeader() throws Exception {
+    String file = "table-layout-pagination-page-header-small.prpt";
+    List<LogicalPageBox> pages = loadPages( file, 5 );
+
+    PageValidator validator = validator().withPageHeader( 50 ).withTableHeader().build();
+    validator.validatePage( pages.get( 0 ), "1", "2" );
+    validator.validatePage( pages.get( 1 ), "3", "4" );
+    validator.validatePage( pages.get( 2 ), "5", "6" );
+    validator.validatePage( pages.get( 3 ), "7", "8" );
+    validator.validatePage( pages.get( 4 ), "9", "10" );
   }
 
-  private static void assertPage( LogicalPageBox page, boolean expectHeader, String... rows ) {
-    assertPage( page, expectHeader, false, rows );
-  }
+  /*
+   * A test with a large page header (height = 200). It does not suit 98 gap.
+   *
+   * Expected layout:
+   *  01: ph,th,1
+   *  ............
+   *  10: ph,th,10
+   */
+  @Test
+  public void paginate_WithHeaderAndLargePageHeader() throws Exception {
+    String file = "table-layout-pagination-page-header-large.prpt";
+    List<LogicalPageBox> pages = loadPages( file, 10 );
 
-  private static void assertPage( LogicalPageBox page, boolean expectHeader, boolean expectFooter, String... rows ) {
-    if ( expectHeader ) {
-      assertHeaderOnPage( page );
-    }
-
-    if ( !ArrayUtils.isEmpty( rows ) ) {
-      assertDataRowsOnPage( page, expectHeader, rows );
-    }
-
-    if ( expectFooter ) {
-      assertFooterOnPage( page, expectHeader, rows );
-    }
-  }
-
-  private static void assertHeaderOnPage( LogicalPageBox page ) {
-    RenderNode[] nodes = MatchFactory.findElementsByName( page, HEADER_NAME );
-    assertEquals( "Name lookup returned the paragraph and renderable text", 2, nodes.length );
-
-    assertEquals( "Header should be put in the very beginning", 0, nodes[ 0 ].getY() );
-    assertEquals( HEADER_VALUE, ( (RenderableText) nodes[ 1 ] ).getRawText() );
-  }
-
-  private static void assertDataRowsOnPage( LogicalPageBox page, boolean expectHeader, String... rows ) {
-    // returns paragraphs and text nodes
-    RenderNode[] rowsNodes = MatchFactory.findElementsByName( page, DETAIL_ROW_NAME );
-    assertEquals( String.format( "Expected for find all these rows: %s\n, but actually found: %s",
-        Arrays.toString( rows ), Arrays.toString( rowsNodes ) ),
-      rows.length * 2, rowsNodes.length );
-
-    final int start = expectHeader ? HEADER_HEIGHT : 0;
-    for ( int i = 0; i < rows.length; i++ ) {
-      String expectedRow = rows[ i ];
-      RenderableText found = (RenderableText) rowsNodes[ i * 2 + 1 ];
-      assertEquals( expectedRow, found.getRawText() );
-
-      RenderNode paragraphNode = rowsNodes[ i * 2 ];
-      long expectedY = StrictGeomUtility.toInternalValue( start + i * ROW_HEIGHT );
-      assertEquals( expectedY, paragraphNode.getY() );
+    PageValidator validator = validator().withPageHeader( 200 ).withTableHeader().build();
+    for ( int i = 0; i < 10; i++ ) {
+      validator.validatePage( pages.get( i ), Integer.toString( i + 1 ) );
     }
   }
 
-  private static void assertFooterOnPage( LogicalPageBox page, boolean expectHeader, String... rows ) {
-    RenderNode[] nodes = MatchFactory.findElementsByName( page, FOOTER_NAME );
-    assertEquals( "Name lookup returned the paragraph and renderable text", 2, nodes.length );
 
-    assertEquals( FOOTER_VALUE, ( (RenderableText) nodes[ 1 ] ).getRawText() );
+  private static ValidatorBuilder validator() {
+    return new ValidatorBuilder();
+  }
 
-    long footerY = expectHeader ? HEADER_HEIGHT : 0;
-    if ( !ArrayUtils.isEmpty( rows ) ) {
-      footerY += rows.length * ROW_HEIGHT;
+  private static class ValidatorBuilder {
+    private int pageHeader;
+    private int tableHeader;
+
+    public ValidatorBuilder withPageHeader( int height ) {
+      pageHeader = height;
+      return this;
     }
-    footerY = StrictGeomUtility.toInternalValue( footerY );
-    assertEquals( footerY, nodes[ 0 ].getY() );
+
+    public ValidatorBuilder withTableHeader() {
+      tableHeader = HEADER_HEIGHT;
+      return this;
+    }
+
+    public PageValidator build() {
+      return new PageValidator( pageHeader, tableHeader );
+    }
+  }
+
+  private static class PageValidator {
+    private final int pageHeaderHeight;
+    private final int tableHeaderHeight;
+    private final int tableFooterHeight;
+
+    public PageValidator( int pageHeaderHeight, int tableHeaderHeight ) {
+      this( pageHeaderHeight, tableHeaderHeight, 0 );
+    }
+
+    public PageValidator( int pageHeaderHeight, int tableHeaderHeight, int tableFooterHeight ) {
+      this.pageHeaderHeight = pageHeaderHeight;
+      this.tableHeaderHeight = tableHeaderHeight;
+      this.tableFooterHeight = tableFooterHeight;
+    }
+
+    public PageValidator alsoCheckTableFooter() {
+      return new PageValidator( pageHeaderHeight, tableHeaderHeight, FOOTER_HEIGHT );
+    }
+
+    public void validatePage( LogicalPageBox page, String... rows ) {
+      int shift = 0;
+      if ( pageHeaderHeight > 0 ) {
+        assertPageHeader( page, shift );
+        shift += pageHeaderHeight;
+      }
+
+      if ( tableHeaderHeight > 0 ) {
+        assertTableHeader( page, shift );
+        shift += tableHeaderHeight;
+      }
+
+      if ( !ArrayUtils.isEmpty( rows ) ) {
+        assertRowsOnPage( page, rows, shift );
+        shift += rows.length * ROW_HEIGHT;
+      }
+
+      if ( tableFooterHeight > 0 ) {
+        assertTableFooter( page, shift );
+      }
+    }
+
+    private void assertPageHeader( LogicalPageBox page, int shift ) {
+      RenderNode[] nodes = MatchFactory.findElementsByName( page, PAGE_HEADER_NAME );
+      assertEquals( "Name lookup returned the paragraph and renderable text", 2, nodes.length );
+
+      assertEquals( StrictGeomUtility.toInternalValue( shift ), nodes[ 0 ].getY() );
+      assertEquals( PAGE_HEADER_VALUE, ( (RenderableText) nodes[ 1 ] ).getRawText() );
+    }
+
+    private void assertTableHeader( LogicalPageBox page, int shift ) {
+      RenderNode[] nodes = MatchFactory.findElementsByName( page, HEADER_NAME );
+      assertEquals( "Name lookup returned the paragraph and renderable text", 2, nodes.length );
+
+      assertEquals( StrictGeomUtility.toInternalValue( shift ), nodes[ 0 ].getY() );
+      assertEquals( HEADER_VALUE, ( (RenderableText) nodes[ 1 ] ).getRawText() );
+    }
+
+    private void assertRowsOnPage( LogicalPageBox page, String[] rows, long shift ) {
+      // returns paragraphs and text nodes
+      RenderNode[] rowsNodes = MatchFactory.findElementsByName( page, DETAIL_ROW_NAME );
+      assertEquals( String.format( "Expected for find all these rows: %s\n, but actually found: %s",
+          Arrays.toString( rows ), Arrays.toString( rowsNodes ) ),
+        rows.length * 2, rowsNodes.length );
+
+      for ( int i = 0; i < rows.length; i++ ) {
+        String expectedRow = rows[ i ];
+        RenderableText found = (RenderableText) rowsNodes[ i * 2 + 1 ];
+        assertEquals( expectedRow, found.getRawText() );
+
+        RenderNode paragraphNode = rowsNodes[ i * 2 ];
+        long expectedY = StrictGeomUtility.toInternalValue( shift + i * ROW_HEIGHT );
+        assertEquals( expectedY, paragraphNode.getY() );
+      }
+    }
+
+    private void assertTableFooter( LogicalPageBox page, int shift ) {
+      RenderNode[] nodes = MatchFactory.findElementsByName( page, FOOTER_NAME );
+      assertEquals( "Name lookup returned the paragraph and renderable text", 2, nodes.length );
+
+      assertEquals( FOOTER_VALUE, ( (RenderableText) nodes[ 1 ] ).getRawText() );
+      assertEquals( StrictGeomUtility.toInternalValue( shift ), nodes[ 0 ].getY() );
+    }
   }
 }

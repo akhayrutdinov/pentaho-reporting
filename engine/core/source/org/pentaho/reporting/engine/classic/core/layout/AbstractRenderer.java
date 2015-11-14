@@ -652,6 +652,7 @@ public abstract class AbstractRenderer implements Renderer {
         + getPageCount() );
     }
 
+    // todo Khayrutdinov : !!!
     final LogicalPageBox pageBox = getPageBox();
     pageBox.getFooterArea().clear();
     pageBox.getRepeatFooterArea().clear();

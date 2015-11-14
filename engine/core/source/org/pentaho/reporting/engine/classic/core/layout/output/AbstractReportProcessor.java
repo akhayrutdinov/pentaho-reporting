@@ -905,6 +905,7 @@ public abstract class AbstractReportProcessor implements ReportProcessor {
           }
 
           if ( isPagebreaksSupported() ) {
+            // todo Khayrutdinov : !!!
             fallBackState = state.deriveForPagebreak();
             globalState = state.deriveForStorage();
             if ( AbstractReportProcessor.SHOW_ROLLBACKS ) {
