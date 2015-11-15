@@ -348,7 +348,7 @@ public final class PaginationStep extends IterateVisualProcessStep {
           startTableHeaderSection( box, sectionRenderBox );
           return false;
         }
-        case FOOTER: {
+        case FOOTER:/* {
           shiftState = shiftStatePool.create( box, shiftState );
 
           paginationTableState = new PaginationTableState( paginationTableState );
@@ -358,7 +358,7 @@ public final class PaginationStep extends IterateVisualProcessStep {
           final long contextShift = shiftState.getShiftForNextChild();
           BoxShifter.shiftBox( box, contextShift );
           return false;
-        }
+        }             */
         case BODY:
           return startBlockLevelBox( box );
         default:
@@ -446,9 +446,9 @@ public final class PaginationStep extends IterateVisualProcessStep {
           paginationTableState.defineArtificialPageStart( box.getHeight() + paginationTableState.getPageOffset() );
           break;
         case FOOTER:
-          shiftState = shiftState.pop( box.getInstanceId() );
+          /*shiftState = shiftState.pop( box.getInstanceId() );
           paginationTableState = paginationTableState.pop();
-          break;
+          break;*/
         case BODY:
           finishBlockLevelBox( box );
           break;
@@ -504,7 +504,7 @@ public final class PaginationStep extends IterateVisualProcessStep {
     }
 
     TableSectionRenderBox sectionBox = (TableSectionRenderBox) node;
-    if ( sectionBox.getDisplayRole() != TableSectionRenderBox.Role.BODY ) {
+    if ( sectionBox.getDisplayRole() == TableSectionRenderBox.Role.HEADER ) {
       return -1;
     }
     return sectionBox.getY();
