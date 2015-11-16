@@ -64,6 +64,7 @@ public final class PaginationStep extends IterateVisualProcessStep {
   private long tableHeaderHeight;
   private long actualShift;
   private long pageHeaderOffset;
+  private long pageFooterOffset;
 
   public PaginationStep() {
     findOldestProcessKeyStep = new FindOldestProcessKeyStep();
@@ -89,6 +90,7 @@ public final class PaginationStep extends IterateVisualProcessStep {
       this.tableHeaderHeight = 0;
       // header area always exists
       this.pageHeaderOffset = pageBox.getHeaderArea().getHeight();
+      this.pageFooterOffset = pageBox.getFooterArea().getHeight();
       this.actualShift = 0;
 
       final long[] allCurrentBreaks = pageBox.getPhysicalBreaks( RenderNode.VERTICAL_AXIS );
@@ -121,7 +123,7 @@ public final class PaginationStep extends IterateVisualProcessStep {
       }
       finishBlockLevelBox( pageBox );
 
-      if (pageHeaderOffset > 0) {
+      if (pageHeaderOffset >= 0) {
         ReportStateKey headerStateKey = pickupReportStateKey(pageBox.getHeaderArea());
         if (headerStateKey != null && this.visualState != null) {
           if (headerStateKey.getSequenceCounter() > this.visualState.getSequenceCounter()) {
@@ -132,7 +134,7 @@ public final class PaginationStep extends IterateVisualProcessStep {
 
       PaginationStepLib.assertProgress( pageBox );
 
-      final long usedPageHeight = Math.min( pageBox.getHeight() - tableHeaderHeight, usablePageHeight );
+      final long usedPageHeight = Math.min( pageBox.getHeight(), usablePageHeight );
       final long masterBreak = basePageBreakList.getLastMasterBreak();
       final boolean overflow;
       if ( breakIndicatorEncountered != null ) {
@@ -160,6 +162,8 @@ public final class PaginationStep extends IterateVisualProcessStep {
     while ( box != null && box.getStateKey() == null ) {
       if ( box.getFirstChild() instanceof RenderBox) {
         box = (RenderBox) box.getFirstChild();
+      } else {
+        break;
       }
     }
     return  (box == null) ? null : box.getStateKey();
@@ -460,7 +464,7 @@ public final class PaginationStep extends IterateVisualProcessStep {
       // PRD-5547:
       // AutoRenderBox is left intact while paginating table-layouted canvas and then is simply cut by Printer
       // to preserve it, let's update the coordinate with Y coordinate of the very first table section child
-      long pageStart = paginationTableState.getPageEnd() - ( paginationTableState.getPageHeight() - pageHeaderOffset );
+      long pageStart = paginationTableState.getPageEnd() - ( paginationTableState.getPageHeight() - pageHeaderOffset - pageFooterOffset );
       long newY = -1;
       RenderNode child = box.getFirstChild();
       while ( child != null ) {

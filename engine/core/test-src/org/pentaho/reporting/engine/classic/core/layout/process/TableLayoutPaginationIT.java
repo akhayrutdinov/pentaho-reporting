@@ -56,6 +56,9 @@ public class TableLayoutPaginationIT {
   private static final String PAGE_HEADER_NAME = "page-header";
   private static final String PAGE_HEADER_VALUE = "Page-Header";
 
+  private static final String PAGE_FOOTER_NAME = "page-footer";
+  private static final String PAGE_FOOTER_VALUE = "Page-Footer";
+
   private static final String HEADER_NAME = "header";
   private static final int HEADER_HEIGHT = 150;
   private static final String HEADER_VALUE = "Header";
@@ -148,7 +151,7 @@ public class TableLayoutPaginationIT {
     validator.validatePage( pages.get( 0 ), "1", "2", "3" );
     validator.validatePage( pages.get( 1 ), "4", "5", "6" );
     validator.validatePage( pages.get( 2 ), "7", "8", "9" );
-    validator.alsoCheckTableFooter().validatePage( pages.get( 3 ), "10" );
+    validator.checkTableFooter().validatePage( pages.get( 3 ), "10" );
   }
 
   /*
@@ -171,7 +174,7 @@ public class TableLayoutPaginationIT {
     validator.validatePage( pages.get( 2 ), "5", "6" );
     validator.validatePage( pages.get( 3 ), "7", "8" );
     validator.validatePage( pages.get( 4 ), "9", "10" );
-    validator.alsoCheckTableFooter().validatePage( pages.get( 5 ) );
+    validator.checkTableFooter().validatePage( pages.get( 5 ) );
   }
 
   /*
@@ -196,7 +199,7 @@ public class TableLayoutPaginationIT {
       String secondRow = Integer.toString( recordCounter++ );
       validator.validatePage( pages.get( i ), firstRow, secondRow );
     }
-    validator.alsoCheckTableFooter().validatePage( pages.get( 50 ) );
+    validator.checkTableFooter().validatePage( pages.get( 50 ) );
   }
 
 
@@ -236,6 +239,53 @@ public class TableLayoutPaginationIT {
     }
   }
 
+  @Test
+  public void paginate_WithHeaderAndSmallPageFooter() throws Exception {
+    String file = "table-layout-pagination-page-footer-small.prpt";
+    List<LogicalPageBox> pages = loadPages( file, 5 );
+
+    PageValidator validator = validator().withTableHeader().build().checkPageFooter( 50 );
+    validator.validatePage( pages.get( 0 ), "1", "2" );
+    validator.validatePage( pages.get( 1 ), "3", "4" );
+    validator.validatePage( pages.get( 2 ), "5", "6" );
+    validator.validatePage( pages.get( 3 ), "7", "8" );
+    validator.validatePage( pages.get( 4 ), "9", "10" );
+  }
+
+  @Test
+  public void paginate_WithHeaderAndLargePageFooter() throws Exception {
+    String file = "table-layout-pagination-page-footer-large.prpt";
+    List<LogicalPageBox> pages = loadPages( file, 10 );
+
+    PageValidator validator = validator().withTableHeader().build().checkPageFooter( 200 );
+    for ( int i = 0; i < 10; i++ ) {
+      validator.validatePage( pages.get( i ), Integer.toString( i + 1 ) );
+    }
+  }
+
+  @Test
+  public void paginate_WithHeaderAndSmallPageHeaderAndFooter() throws Exception {
+    String file = "table-layout-pagination-page-header-footer-small.prpt";
+    List<LogicalPageBox> pages = loadPages( file, 10 );
+
+    PageValidator validator = validator().withPageHeader( 50 ).withTableHeader().build().checkPageFooter( 50 );
+    for ( int i = 0; i < 10; i++ ) {
+      validator.validatePage( pages.get( i ), Integer.toString( i + 1 ) );
+    }
+  }
+
+  @Test
+  public void paginate_WithHeaderAndFooterAndSmallPageHeaderAndFooter() throws Exception {
+    String file = "table-layout-pagination-page-header-footer-small-table-header-footer.prpt";
+    List<LogicalPageBox> pages = loadPages( file, 10 );
+
+    PageValidator validator = validator().withPageHeader( 50 ).withTableHeader().build().checkPageFooter( 50 );
+    for ( int i = 0; i < 9; i++ ) {
+      validator.validatePage( pages.get( i ), Integer.toString( i + 1 ) );
+    }
+    validator.checkTableFooter().validatePage( pages.get( 9 ), Integer.toString( 10 ) );
+  }
+
 
   private static ValidatorBuilder validator() {
     return new ValidatorBuilder();
@@ -264,19 +314,25 @@ public class TableLayoutPaginationIT {
     private final int pageHeaderHeight;
     private final int tableHeaderHeight;
     private final int tableFooterHeight;
+    private final int pageFooterHeight;
 
     public PageValidator( int pageHeaderHeight, int tableHeaderHeight ) {
-      this( pageHeaderHeight, tableHeaderHeight, 0 );
+      this( pageHeaderHeight, tableHeaderHeight, 0, 0 );
     }
 
-    public PageValidator( int pageHeaderHeight, int tableHeaderHeight, int tableFooterHeight ) {
+    public PageValidator( int pageHeaderHeight, int tableHeaderHeight, int tableFooterHeight, int pageFooterHeight ) {
       this.pageHeaderHeight = pageHeaderHeight;
       this.tableHeaderHeight = tableHeaderHeight;
       this.tableFooterHeight = tableFooterHeight;
+      this.pageFooterHeight = pageFooterHeight;
     }
 
-    public PageValidator alsoCheckTableFooter() {
-      return new PageValidator( pageHeaderHeight, tableHeaderHeight, FOOTER_HEIGHT );
+    public PageValidator checkTableFooter() {
+      return new PageValidator( pageHeaderHeight, tableHeaderHeight, FOOTER_HEIGHT, pageFooterHeight );
+    }
+
+    public PageValidator checkPageFooter( int footerHeight ) {
+      return new PageValidator( pageHeaderHeight, tableHeaderHeight, tableFooterHeight, footerHeight );
     }
 
     public void validatePage( LogicalPageBox page, String... rows ) {
@@ -298,6 +354,10 @@ public class TableLayoutPaginationIT {
 
       if ( tableFooterHeight > 0 ) {
         assertTableFooter( page, shift );
+      }
+
+      if ( pageFooterHeight > 0 ) {
+        assertPageFooter( page );
       }
     }
 
@@ -341,6 +401,16 @@ public class TableLayoutPaginationIT {
 
       assertEquals( FOOTER_VALUE, ( (RenderableText) nodes[ 1 ] ).getRawText() );
       assertEquals( StrictGeomUtility.toInternalValue( shift ), nodes[ 0 ].getY() );
+    }
+
+    private void assertPageFooter( LogicalPageBox page ) {
+      RenderNode[] nodes = MatchFactory.findElementsByName( page, PAGE_FOOTER_NAME );
+      assertEquals( "Name lookup returned the paragraph and renderable text", 2, nodes.length );
+
+
+      assertEquals( PAGE_FOOTER_VALUE, ( (RenderableText) nodes[ 1 ] ).getRawText() );
+      assertEquals( StrictGeomUtility.toInternalValue( pageFooterHeight ), nodes[ 0 ].getHeight() );
+      assertEquals( page.getPageEnd(), nodes[ 0 ].getY2() );
     }
   }
 }
