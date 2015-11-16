@@ -287,6 +287,16 @@ public class TableLayoutPaginationIT {
   }
 
 
+
+  @Test
+  public void nested() throws Exception {
+    String file = "table-layout-pagination-nested-table-header-footer.prpt";
+    List<LogicalPageBox> pages = loadPages( file, 20 );
+    System.out.println();
+  }
+
+
+
   private static ValidatorBuilder validator() {
     return new ValidatorBuilder();
   }
