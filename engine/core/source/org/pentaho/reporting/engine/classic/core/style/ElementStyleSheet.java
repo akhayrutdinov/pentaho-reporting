@@ -236,7 +236,6 @@ public class ElementStyleSheet extends AbstractStyleSheet implements Serializabl
         // invalidate the cache ..
         putInCache( key, null, SOURCE_UNDEFINED );
         updateChangeTracker( key, null );
-        properties[ identifier ] = null;
         styleChangeSupport.fireStyleRemoved( key );
       }
       return;
@@ -360,9 +359,10 @@ public class ElementStyleSheet extends AbstractStyleSheet implements Serializabl
     } else {
       final int size = properties.length;
       out.writeInt( size );
+      SerializerHelper helper = SerializerHelper.getInstance();
       for ( int i = 0; i < size; i++ ) {
         final Object value = properties[ i ];
-        SerializerHelper.getInstance().writeObject( value, out );
+        helper.writeObject( value, out );
       }
     }
   }
